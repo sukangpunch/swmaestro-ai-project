@@ -1,0 +1,63 @@
+from langgraph.graph import END, START, StateGraph
+
+from ai.nodes import (
+    calculation_node,
+    feedback_parsing_node,
+    input_parsing_node,
+    report_generation_node,
+    route_request_node,
+    safety_check_node,
+)
+from ai.state import SettlementState
+
+
+def _route_entry(state: SettlementState) -> str:
+    pj = state.get("parsed_json", {})
+    if pj and pj.get("participants"):
+        return "feedback_parsing"
+    return "input_parsing"
+
+
+def _route_after_safety(state: SettlementState) -> str:
+    if state.get("safety_error"):
+        return "end"
+    return "route_request"
+
+
+builder = StateGraph(SettlementState)
+
+builder.add_node("input_parsing", input_parsing_node)
+builder.add_node("safety_check", safety_check_node)
+builder.add_node("route_request", route_request_node)
+builder.add_node("calculation", calculation_node)
+builder.add_node("report_generation", report_generation_node)
+builder.add_node("feedback_parsing", feedback_parsing_node)
+
+# Entry: initial flow or feedback flow
+builder.add_conditional_edges(
+    START,
+    _route_entry,
+    {
+        "input_parsing": "input_parsing",
+        "feedback_parsing": "feedback_parsing",
+    },
+)
+
+# Main flow
+builder.add_edge("input_parsing", "safety_check")
+builder.add_conditional_edges(
+    "safety_check",
+    _route_after_safety,
+    {
+        "route_request": "route_request",
+        "end": END,
+    },
+)
+builder.add_edge("route_request", "calculation")
+builder.add_edge("calculation", "report_generation")
+builder.add_edge("report_generation", END)
+
+# Feedback flow re-enters at calculation
+builder.add_edge("feedback_parsing", "calculation")
+
+graph = builder.compile()
