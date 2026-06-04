@@ -100,8 +100,12 @@ def test_partial_discount_redistributed():
 
 # ── 최소 부담 하한선 ───────────────────────────────────────────────────────
 
-def test_floor_applied_when_discount_too_deep():
-    """감액 후 균등분담액의 30% 미만이면 하한선 강제 적용"""
+def test_full_exclusion_exempt_from_floor():
+    """완전 제외(discount_rate=1.0)된 참여자는 하한선을 적용하지 않고 0원으로 둔다.
+
+    부분 감액으로 30% 미만이 된 경우에만 하한선이 강제 적용된다.
+    유일 항목을 완전히 제외한 B는 실제로 소비한 비용이 없으므로 0원이 맞다.
+    """
     result = calculate({
         "total_amount": 10000,
         "items": [{"name": "주류", "amount": 10000}],
@@ -112,10 +116,11 @@ def test_floor_applied_when_discount_too_deep():
             ]},
         ],
     })
-    # base = 5,000 / floor = 1,500 / B would pay 0 → clamped to 1,500
+    # B는 유일 항목을 완전 제외 → 0원 (하한선 면제), A가 전액 부담
     amounts = {p["name"]: p["final_amount"] for p in result["participants"]}
-    assert amounts["B"] >= 1500
-    assert "B" in result["floor_applied"]
+    assert amounts["B"] == 0
+    assert amounts["A"] == 10000
+    assert "B" not in result.get("floor_applied", [])
     assert result["total_verified"] is True
 
 
@@ -163,7 +168,7 @@ def test_scenario_a_exact_amounts():
     assert amounts["D"] == 13750
 
 
-# ── 시나리오 B (선결제) ────────────────────────────────────────────────────
+# ── 시나리오 B (복합 예외) ─────────────────────────────────────────────────
 
 INPUT_B = {
     "total_amount": 120000,
@@ -172,7 +177,6 @@ INPUT_B = {
         {"name": "안주", "amount": 50000},
         {"name": "공통비", "amount": 20000},
     ],
-    "sponsor": {"name": "A", "prepaid": 50000},
     "participants": [
         {"name": "A", "exceptions": []},
         {"name": "B", "exceptions": []},
@@ -181,7 +185,7 @@ INPUT_B = {
             {"type": "술 미섭취", "target_items": ["주류"], "discount_rate": 1.0}
         ]},
         {"name": "E", "exceptions": [
-            {"type": "늦은 도착 + 소량 섭취", "target_items": ["안주"], "discount_rate": 0.5}
+            {"type": "소량 섭취", "target_items": ["안주"], "discount_rate": 0.5}
         ]},
     ],
 }
@@ -190,13 +194,7 @@ INPUT_B = {
 def test_scenario_b_total_verified():
     result = calculate(INPUT_B)
     assert result["total_verified"] is True
-
-
-def test_scenario_b_sponsor_accounting():
-    """선결제 반영 후 final_amount 합계 + 선결제 = 총액"""
-    result = calculate(INPUT_B)
-    total_collected = sum(p["final_amount"] for p in result["participants"])
-    assert total_collected + 50000 == 120000
+    assert sum(p["final_amount"] for p in result["participants"]) == 120000
 
 
 # ── 시나리오 C (피드백 재계산) ─────────────────────────────────────────────

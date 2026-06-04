@@ -57,7 +57,7 @@ builder.add_edge("route_request", "calculation")
 builder.add_edge("calculation", "report_generation")
 builder.add_edge("report_generation", END)
 
-# Feedback flow re-enters at calculation
-builder.add_edge("feedback_parsing", "calculation")
+# Feedback flow also goes through safety_check
+builder.add_edge("feedback_parsing", "safety_check")
 
 graph = builder.compile()

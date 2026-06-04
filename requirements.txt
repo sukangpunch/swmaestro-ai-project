@@ -1,0 +1,20 @@
+# AI 정산 비서 — 의존성
+# 설치: pip install -r requirements.txt
+
+# LangGraph 워크플로우
+langgraph>=0.2.0
+
+# Upstage Solar LLM 호출 (OpenAI 호환 엔드포인트)
+openai>=1.40.0
+
+# LangSmith 트레이싱/로깅 (wrap_openai)
+langsmith>=0.1.100
+
+# .env 로드
+python-dotenv>=1.0.0
+
+# Streamlit UI
+streamlit>=1.40.0
+
+# 테스트
+pytest>=8.0.0
